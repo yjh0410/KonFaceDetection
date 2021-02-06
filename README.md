@@ -32,16 +32,16 @@ It is too hard to train from scratch.
 # Detection
 I visualize the detection results on test images:
 
-![Image](https://github.com/yjh0410/KonFaceDetection/blob/main/img_files/img_files/0.jpg)
-![Image](https://github.com/yjh0410/KonFaceDetection/blob/main/img_files/img_files/1.jpg)
-![Image](https://github.com/yjh0410/KonFaceDetection/blob/main/img_files/img_files/2.jpg)
-![Image](https://github.com/yjh0410/KonFaceDetection/blob/main/img_files/img_files/3.jpg)
-![Image](https://github.com/yjh0410/KonFaceDetection/blob/main/img_files/img_files/4.jpg)
-![Image](https://github.com/yjh0410/KonFaceDetection/blob/main/img_files/img_files/5.jpg)
-![Image](https://github.com/yjh0410/KonFaceDetection/blob/main/img_files/img_files/6.jpg)
-![Image](https://github.com/yjh0410/KonFaceDetection/blob/main/img_files/img_files/7.jpg)
-![Image](https://github.com/yjh0410/KonFaceDetection/blob/main/img_files/img_files/8.jpg)
-![Image](https://github.com/yjh0410/KonFaceDetection/blob/main/img_files/img_files/9.jpg)
+![Image](https://github.com/yjh0410/KonFaceDetection/blob/main/img_files/0.jpg)
+![Image](https://github.com/yjh0410/KonFaceDetection/blob/main/img_files/1.jpg)
+![Image](https://github.com/yjh0410/KonFaceDetection/blob/main/img_files/2.jpg)
+![Image](https://github.com/yjh0410/KonFaceDetection/blob/main/img_files/3.jpg)
+![Image](https://github.com/yjh0410/KonFaceDetection/blob/main/img_files/4.jpg)
+![Image](https://github.com/yjh0410/KonFaceDetection/blob/main/img_files/5.jpg)
+![Image](https://github.com/yjh0410/KonFaceDetection/blob/main/img_files/6.jpg)
+![Image](https://github.com/yjh0410/KonFaceDetection/blob/main/img_files/7.jpg)
+![Image](https://github.com/yjh0410/KonFaceDetection/blob/main/img_files/8.jpg)
+![Image](https://github.com/yjh0410/KonFaceDetection/blob/main/img_files/9.jpg)
 
 The five girls are all cute and pretty, right?
 
