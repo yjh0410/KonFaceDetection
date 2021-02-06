@@ -32,17 +32,39 @@ It is too hard to train from scratch.
 # Detection
 I visualize the detection results on test images:
 
-![Image](https://github.com/yjh0410/KonFaceDetection/blob/master/img_files/0.jpg)
-![Image](https://github.com/yjh0410/KonFaceDetection/blob/master/img_files/1.jpg)
-![Image](https://github.com/yjh0410/KonFaceDetection/blob/master/img_files/2.jpg)
-![Image](https://github.com/yjh0410/KonFaceDetection/blob/master/img_files/3.jpg)
-![Image](https://github.com/yjh0410/KonFaceDetection/blob/master/img_files/4.jpg)
-![Image](https://github.com/yjh0410/KonFaceDetection/blob/master/img_files/5.jpg)
-![Image](https://github.com/yjh0410/KonFaceDetection/blob/master/img_files/6.jpg)
-![Image](https://github.com/yjh0410/KonFaceDetection/blob/master/img_files/7.jpg)
-![Image](https://github.com/yjh0410/KonFaceDetection/blob/master/img_files/8.jpg)
-![Image](https://github.com/yjh0410/KonFaceDetection/blob/master/img_files/9.jpg)
+![Image](https://github.com/yjh0410/KonFaceDetection/blob/main/img_files/img_files/0.jpg)
+![Image](https://github.com/yjh0410/KonFaceDetection/blob/main/img_files/img_files/1.jpg)
+![Image](https://github.com/yjh0410/KonFaceDetection/blob/main/img_files/img_files/2.jpg)
+![Image](https://github.com/yjh0410/KonFaceDetection/blob/main/img_files/img_files/3.jpg)
+![Image](https://github.com/yjh0410/KonFaceDetection/blob/main/img_files/img_files/4.jpg)
+![Image](https://github.com/yjh0410/KonFaceDetection/blob/main/img_files/img_files/5.jpg)
+![Image](https://github.com/yjh0410/KonFaceDetection/blob/main/img_files/img_files/6.jpg)
+![Image](https://github.com/yjh0410/KonFaceDetection/blob/main/img_files/img_files/7.jpg)
+![Image](https://github.com/yjh0410/KonFaceDetection/blob/main/img_files/img_files/8.jpg)
+![Image](https://github.com/yjh0410/KonFaceDetection/blob/main/img_files/img_files/9.jpg)
 
 The five girls are all cute and pretty, right?
 
 So, enjoy it.
+
+# Train
+```Shell
+python train.py --cuda -ms --mosaic -r
+```
+
+```--cuda``` means you use gpu to train it.
+
+```-ms``` means you use multi scale trick.
+
+```--mosaic``` means you use mosaic augmentation trick.
+
+# Test
+```Shell
+python test.py --cuda --trained_model [select a model file]
+```
+
+# Eval
+```Shell
+python eval.py --cuda --trained_model [select a model file]
+```
+I don't have a test labels, so it is useless.
