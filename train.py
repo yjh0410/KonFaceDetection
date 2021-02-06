@@ -84,11 +84,11 @@ def train():
     # multi scale
     if args.multi_scale:
         print('Let us use the multi-scale trick.')
-        train_size = [640, 640]
-        val_size = [512, 512]
+        train_size = [800, 800]
+        val_size = [640, 640]
     else:
-        train_size = [512, 512]
-        val_size = [512, 512]
+        train_size = [640, 640]
+        val_size = [640, 640]
 
     # we use our ship dataset
     num_classes = 5
@@ -189,7 +189,7 @@ def train():
             # multi-scale trick
             if iter_i % 10 == 0 and iter_i > 0 and args.multi_scale:
                 # randomly choose a new size
-                size = random.randint(10, 19) * 32
+                size = random.randint(10, 25) * 32
                 input_size = [size, size]
             if args.multi_scale:
                 # interpolate
