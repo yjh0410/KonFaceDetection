@@ -2,65 +2,60 @@ import os
 import argparse
 import torch
 import torch.backends.cudnn as cudnn
-from data import WIDERFaceDetection, WIDERFace_CLASSES, WIDERFace_ROOT, BaseTransform
-from data import config
+from data import BaseTransform, KON_CLASSES
 import numpy as np
 import cv2
 import tools
 import time
 
 
-parser = argparse.ArgumentParser(description='Face Detection')
+parser = argparse.ArgumentParser(description='KON-Face Detection')
 parser.add_argument('-v', '--version', default='CenterFace',
                     help='CenterFace')
 parser.add_argument('--setup', default='widerface',
                     type=str, help='widerface')
 parser.add_argument('--mode', default='image',
                     type=str, help='Use the data from image, video or camera')
-parser.add_argument('--cuda', action='store_true', default=False,
+parser.add_argument('--no_cuda', action='store_true', default=False,
                     help='Use cuda')
-parser.add_argument('--path_to_img', default='data/demo/Images/',
+parser.add_argument('-size', '--input_size', default=640, type=int, 
+                    help='The input size of image')
+parser.add_argument('--path_to_img', default='data/demo/images/',
                     type=str, help='The path to image files')
-parser.add_argument('--path_to_vid', default='data/demo/video/',
+parser.add_argument('--path_to_vid', default='data/demo/videos/',
                     type=str, help='The path to video files')
-parser.add_argument('--path_to_saveVid', default='data/video/result.avi',
+parser.add_argument('--path_to_save', default='det_results/',
                     type=str, help='The path to save the detection results video')
 parser.add_argument('--trained_model', default='weights/widerface/',
                     type=str, help='Trained state_dict file path to open')
-parser.add_argument('--vis_thresh', default=0.2, type=float,
+parser.add_argument('-vs', '--vis_thresh', default=0.5, type=float,
                     help='Final confidence args.vis_threshold')
                     
 
 args = parser.parse_args()
 
 
+def vis(img, bboxes, scores, cls_inds, class_names, class_color):
+    for i, box in enumerate(bboxes):
+        xmin, ymin, xmax, ymax = box
+        cls_ind = int(cls_inds[i])
+        cls_name = class_names[cls_ind]
+        # print(xmin, ymin, xmax, ymax)
+        if scores[i] > args.vis_thresh:
+            mess = '%s: %.2f' % (cls_name, scores[i])
+            cv2.rectangle(img, (int(xmin), int(ymin)), (int(xmax), int(ymax)), class_color[cls_ind], 2)
+            cv2.rectangle(img, (int(xmin), int(abs(ymin)-15)), (int(xmax), int(ymin)), class_color[cls_ind], -1)
+            cv2.putText(img, mess, (int(xmin), int(ymin)), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0,0,0), 1)
 
-def preprocess(img):
-    h, w, c = img.shape
-    # zero padding
-    if h > w:
-        img_ = np.zeros([h, h, 3])
-        delta_w = h - w
-        left = delta_w // 2
-        img_[:, left:left+w, :] = img
-        offset = np.array([[ left / h, 0.,  left / h, 0.]])
+    return img
 
-    elif h < w:
-        img_ = np.zeros([w, w, 3])
-        delta_h = w - h
-        top = delta_h // 2
-        img_[top:top+h, :, :] = img
-        offset = np.array([[0.,    top / w, 0.,    top / w]])
+
+def detect(net, device, transform, mode, path_to_img=None, path_to_vid=None, path_to_save=None):
+    print("----------------------------------------KON Face Detection--------------------------------------------")
+    save_path = os.path.join(path_to_save, mode)
+    os.makedirs(save_path, exist_ok=True)
+    class_color = [(255, 0, 255), (18, 153, 255), (255, 0, 0), (0, 255, 0), (203, 192, 255)]
     
-    else:
-        img_ = img
-        offset = np.zeros([1, 4])
-
-    return img_, offset, h, w
-
-
-print("----------------------------------------Face Detection--------------------------------------------")
-def detect(net, device, transform, mode='image', path_to_img=None, path_to_vid=None, path_to_save=None, setup='widerface'):
     # ------------------------- Camera ----------------------------
     # I'm not sure whether this 'camera' mode works ...
     if mode == 'camera':
@@ -73,35 +68,16 @@ def detect(net, device, transform, mode='image', path_to_img=None, path_to_vid=N
             if cv2.waitKey(1) == ord('q'):
                 break
             if ret:
-                h, w, c = frame.shape
-                # zero padding
-                if h > w:
-                    img_ = np.zeros([h, h, 3])
-                    delta_w = h - w
-                    left = delta_w // 2
-                    img_[:, left:left+w, :] = frame
-                    offset = np.array([[ left / h, 0.,  left / h, 0.]])
-
-                elif h < w:
-                    img_ = np.zeros([w, w, 3])
-                    delta_h = w - h
-                    top = delta_h // 2
-                    img_[top:top+h, :, :] = frame
-                    offset = np.array([[0.,    top / w, 0.,    top / w]])
-                
-                else:
-                    img_ = frame
-                    offset = np.zeros([1, 4])
+                # preprocess
+                h, w, _ = frame.shape
+                frame_, _, _, _, offset = transform(frame)
 
                 # to rgb
-                img_ = img_[:, :, (2, 1, 0)]
-                x = torch.from_numpy(transform(img_)[0][:, :, (2, 1, 0)]).permute(2, 0, 1)
+                x = torch.from_numpy(frame_[:, :, (2, 1, 0)]).permute(2, 0, 1)
                 x = x.unsqueeze(0).to(device)
 
-                torch.cuda.synchronize()
                 t0 = time.time()
-                bboxes, scores = net(x)
-                torch.cuda.synchronize()
+                bboxes, scores, cls_inds = net(x)
                 t1 = time.time()
                 print("detection time used ", t1-t0, "s")
                 # scale each detection back up to the image
@@ -111,38 +87,34 @@ def detect(net, device, transform, mode='image', path_to_img=None, path_to_vid=N
                 # map to the image without zero padding
                 bboxes -= (offset * max_line)
 
-                class_color = (255, 0, 0)
-                for i, box in enumerate(bboxes):
-                    xmin, ymin, xmax, ymax = box
-                    # print(xmin, ymin, xmax, ymax)
-                    if scores[i] > args.vis_thresh:
-                        cv2.rectangle(frame, (int(xmin), int(ymin)), (int(xmax), int(ymax)), class_color, 2)
+                frame_processed = vis(frame, bboxes, scores, cls_inds, class_names=KON_CLASSES, class_color=class_color)
+                
                 if path_to_save is not None:
-                    out.write(frame)
+                    frame_resize = cv2.resize(frame_processed, save_size)
+                    out.write(frame_resize)
 
-                cv2.imshow('face detection', frame)
+                cv2.imshow('detection result', frame_processed)
                 cv2.waitKey(1)
+            else:
+                break
+        
         cap.release()
-        cv2.destroyAllWindows()
+        cv2.destroyAllWindows()        
 
     # ------------------------- Image ----------------------------
     elif mode == 'image':
-        save_path = 'test_results'
-        os.makedirs(save_path, exist_ok=True)
         for index, file_name in enumerate(os.listdir(path_to_img)):
             img = cv2.imread(path_to_img + '/' + file_name, cv2.IMREAD_COLOR)
             # preprocess
-            img_, offset, h, w = preprocess(img)
+            h, w, _ = img.shape
+            img_, _, _, _, offset = transform(img)
 
             # to rgb
-            img_ = img_[:, :, (2, 1, 0)]
-            x = torch.from_numpy(transform(img_)[0][:, :, (2, 1, 0)]).permute(2, 0, 1)
+            x = torch.from_numpy(img_[:, :, (2, 1, 0)]).permute(2, 0, 1)
             x = x.unsqueeze(0).to(device)
 
-            torch.cuda.synchronize()
             t0 = time.time()
-            bboxes, scores = net(x)
-            torch.cuda.synchronize()
+            bboxes, scores, cls_inds = net(x)
             t1 = time.time()
             print("detection time used ", t1-t0, "s")
             # scale each detection back up to the image
@@ -152,38 +124,33 @@ def detect(net, device, transform, mode='image', path_to_img=None, path_to_vid=N
             # map to the image without zero padding
             bboxes -= (offset * max_line)
 
-            class_color = (0, 0, 255)
-            for i, box in enumerate(bboxes):
-                xmin, ymin, xmax, ymax = box
-                # print(xmin, ymin, xmax, ymax)
-                if scores[i] > args.vis_thresh:
-                    cv2.rectangle(img, (int(xmin), int(ymin)), (int(xmax), int(ymax)), class_color, 2)
-            # cv2.imshow('face detection', img)
-            # cv2.waitKey(0)
-            cv2.imwrite(os.path.join(save_path, str(index).zfill(6) +'.jpg'), img)
+            img_processed = vis(img, bboxes, scores, cls_inds, class_names=KON_CLASSES, class_color=class_color)
+            cv2.imwrite(os.path.join(save_path, str(index).zfill(6) +'.jpg'), img_processed)
+            cv2.imshow('detection result', img_processed)
+            cv2.waitKey(0)
 
     # ------------------------- Video ---------------------------
     elif mode == 'video':
         video = cv2.VideoCapture(path_to_vid)
         fourcc = cv2.VideoWriter_fourcc(*'XVID')
-        out = cv2.VideoWriter('output000.avi',fourcc, 40.0, (1280,720))
+        save_path = os.path.join(save_path, 'det.avi')
+        save_size = (1280,720)
+        out = cv2.VideoWriter(save_path, fourcc, 15.0, save_size)
         while(True):
             ret, frame = video.read()
             
             if ret:
                 # ------------------------- Detection ---------------------------
                 # preprocess
-                img_, offset, h, w = preprocess(frame)
+                h, w, _ = frame.shape
+                frame_, _, _, _, offset = transform(frame)
 
                 # to rgb
-                img_ = img_[:, :, (2, 1, 0)]
-                x = torch.from_numpy(transform(img_)[0][:, :, (2, 1, 0)]).permute(2, 0, 1)
+                x = torch.from_numpy(frame_[:, :, (2, 1, 0)]).permute(2, 0, 1)
                 x = x.unsqueeze(0).to(device)
 
-                torch.cuda.synchronize()
                 t0 = time.time()
-                bboxes, scores = net(x)
-                torch.cuda.synchronize()
+                bboxes, scores, cls_inds = net(x)
                 t1 = time.time()
                 print("detection time used ", t1-t0, "s")
                 # scale each detection back up to the image
@@ -193,14 +160,12 @@ def detect(net, device, transform, mode='image', path_to_img=None, path_to_vid=N
                 # map to the image without zero padding
                 bboxes -= (offset * max_line)
 
-                class_color = (255, 0, 0)
-                for i, box in enumerate(bboxes):
-                    xmin, ymin, xmax, ymax = box
-                    # print(xmin, ymin, xmax, ymax)
-                    if scores[i] > args.vis_thresh:
-                        cv2.rectangle(frame, (int(xmin), int(ymin)), (int(xmax), int(ymax)), class_color, 2)
-                cv2.imshow('face detection', img)
-                cv2.waitKey(0)
+                frame_processed = vis(frame, bboxes, scores, cls_inds, class_names=KON_CLASSES, class_color=class_color)
+                
+                resize_frame_processed = cv2.resize(frame_processed, save_size)
+                cv2.imshow('detection result', frame_processed)
+                out.write(resize_frame_processed)
+                cv2.waitKey(1)
             else:
                 break
         video.release()
@@ -209,22 +174,26 @@ def detect(net, device, transform, mode='image', path_to_img=None, path_to_vid=N
 
 
 def run():
-    if args.cuda:
-        print('use cuda')
-        cudnn.benchmark = True
-        device = torch.device("cuda")
-    else:
+    # cuda
+    if args.no_cuda:
+        print("use cpu")
         device = torch.device("cpu")
+    else:
+        if torch.cuda.is_available():
+            print("use gpu")
+            device = torch.device("cuda")
+        else:
+            print("It seems you don't have a gpu ... ")
+            device = torch.device("cpu")
 
     # load net
-    cfg = config.WF_config
-    input_size = cfg['min_dim']
+    input_size = [args.input_size, args.input_size]
 
     # build model
     if args.version == 'CenterFace':
         from models.centerface import CenterFace
 
-        net = CenterFace(device, input_size=input_size, trainable=False, conf_thresh=0.3, topk=200)
+        net = CenterFace(device, input_size=input_size, num_classes=5)
         print('Let us test CenterFace......')
 
     else:
@@ -240,14 +209,13 @@ def run():
 
     # run
     if args.mode == 'camera':
-        detect(net, device, BaseTransform(net.input_size, mean=(0.406, 0.456, 0.485), std=(0.225, 0.224, 0.229)), 
-                    mode=args.mode, setup=args.setup)
+        detect(net, device, BaseTransform(input_size), mode=args.mode, path_to_save=args.path_to_save)
     elif args.mode == 'image':
-        detect(net, device, BaseTransform(net.input_size, mean=(0.406, 0.456, 0.485), std=(0.225, 0.224, 0.229)), 
-                    mode=args.mode, path_to_img=args.path_to_img, setup=args.setup)
+        detect(net, device, BaseTransform(input_size), 
+                    mode=args.mode, path_to_img=args.path_to_img, path_to_save=args.path_to_save)
     elif args.mode == 'video':
-        detect(net, device, BaseTransform(net.input_size, mean=(0.406, 0.456, 0.485), std=(0.225, 0.224, 0.229)),
-                    mode=args.mode, path_to_vid=args.path_to_vid, path_to_save=args.path_to_saveVid, setup=args.setup)
+        detect(net, device, BaseTransform(input_size),
+                    mode=args.mode, path_to_vid=args.path_to_vid, path_to_save=args.path_to_save)
 
 if __name__ == '__main__':
     run()
